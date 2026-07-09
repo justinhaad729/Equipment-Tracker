@@ -141,7 +141,8 @@
     text-transform:uppercase;
     letter-spacing:0.4px;
   }
-  .form-row input{
+  .form-row input,
+  .form-row select{
     display:block;
     width:100%;
     margin-top:6px;
@@ -334,6 +335,49 @@
     min-height:64px;
     resize:vertical;
   }
+
+  .patient-info-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(200px,1fr));
+    gap:12px;
+    margin-bottom:16px;
+  }
+  .patient-info-grid label{
+    display:block;
+    font-size:0.78rem;
+    font-weight:600;
+    color:#5a6b6e;
+    text-transform:uppercase;
+    letter-spacing:0.4px;
+    margin-bottom:6px;
+  }
+  .patient-info-grid select,
+  .patient-info-grid input{
+    width:100%;
+    padding:9px 10px;
+    border:1px solid var(--line);
+    border-radius:6px;
+    font-size:0.9rem;
+    font-family:inherit;
+    background:#fff;
+  }
+  .label-badge{
+    font-size:0.68rem;
+    font-weight:700;
+    padding:3px 8px;
+    border-radius:4px;
+    letter-spacing:0.5px;
+    text-transform:uppercase;
+    white-space:nowrap;
+  }
+  .label-badge.ssr{ background:#e6f0fb; color:#1c5fa8; }
+  .label-badge.ltc{ background:#f2e9fb; color:#7a37b0; }
+  .label-badge.abm{ background:#fdece0; color:#c1591a; }
+  .therapist-tag{
+    font-size:0.78rem;
+    color:#7d8a88;
+    margin-top:2px;
+  }
   .card-footer{
     display:flex;
     justify-content:space-between;
@@ -392,6 +436,19 @@
       </label>
       <label>MRN
         <input type="text" id="newMRN" placeholder="e.g. 100234">
+      </label>
+    </div>
+    <div class="form-row">
+      <label>Label
+        <select id="newLabel">
+          <option value="">None</option>
+          <option value="SSR">SSR</option>
+          <option value="LTC">LTC</option>
+          <option value="ABM">ABM</option>
+        </select>
+      </label>
+      <label>Primary Therapist
+        <input type="text" id="newTherapist" placeholder="e.g. Justin">
       </label>
     </div>
     <div class="form-actions">
@@ -506,10 +563,13 @@ function render(){
 
     const head = document.createElement('div');
     head.className = 'patient-head';
+    const labelKey = (p.label || '').toLowerCase();
+    const badgeHtml = p.label ? `<span class="label-badge ${labelKey}">${escapeHtml(p.label)}</span>` : '';
     head.innerHTML = `
       <div class="patient-id">
-        <h3>${escapeHtml(p.name)}</h3>
+        <h3>${escapeHtml(p.name)} ${badgeHtml}</h3>
         <div class="mrn">MRN: ${escapeHtml(p.mrn)}</div>
+        ${p.primaryTherapist ? `<div class="therapist-tag">PT: ${escapeHtml(p.primaryTherapist)}</div>` : ''}
       </div>
       <div class="head-right">
         <span class="progress-chip">${progressSummary(p)}</span>
@@ -541,6 +601,48 @@ function render(){
 
     const inner = document.createElement('div');
     inner.className = 'patient-body-inner';
+
+    const infoGrid = document.createElement('div');
+    infoGrid.className = 'patient-info-grid';
+    infoGrid.innerHTML = `
+      <div>
+        <label>Label</label>
+        <select class="labelSelect">
+          <option value="" ${!p.label ? 'selected' : ''}>None</option>
+          <option value="SSR" ${p.label === 'SSR' ? 'selected' : ''}>SSR</option>
+          <option value="LTC" ${p.label === 'LTC' ? 'selected' : ''}>LTC</option>
+          <option value="ABM" ${p.label === 'ABM' ? 'selected' : ''}>ABM</option>
+        </select>
+      </div>
+      <div>
+        <label>Primary Therapist</label>
+        <input type="text" class="therapistInput" placeholder="e.g. Justin" value="${escapeHtml(p.primaryTherapist || '')}">
+      </div>
+    `;
+    const labelSelect = infoGrid.querySelector('.labelSelect');
+    const therapistInput = infoGrid.querySelector('.therapistInput');
+    labelSelect.addEventListener('change', () => {
+      p.label = labelSelect.value;
+      saveData();
+      const h3 = head.querySelector('h3');
+      const badgeKey = (p.label || '').toLowerCase();
+      h3.innerHTML = `${escapeHtml(p.name)} ${p.label ? `<span class="label-badge ${badgeKey}">${escapeHtml(p.label)}</span>` : ''}`;
+    });
+    therapistInput.addEventListener('input', () => {
+      p.primaryTherapist = therapistInput.value;
+      saveData();
+      let tag = head.querySelector('.therapist-tag');
+      if(p.primaryTherapist){
+        if(!tag){
+          tag = document.createElement('div');
+          tag.className = 'therapist-tag';
+          head.querySelector('.patient-id').appendChild(tag);
+        }
+        tag.textContent = `PT: ${p.primaryTherapist}`;
+      } else if(tag){
+        tag.remove();
+      }
+    });
 
     const grid = document.createElement('div');
     grid.className = 'equip-grid';
@@ -607,6 +709,7 @@ function render(){
     });
     footerRow.appendChild(delBtn);
 
+    inner.appendChild(infoGrid);
     inner.appendChild(grid);
     inner.appendChild(commentBlock);
     inner.appendChild(footerRow);
@@ -635,6 +738,8 @@ const cancelAddBtn = document.getElementById('cancelAddBtn');
 const saveAddBtn = document.getElementById('saveAddBtn');
 const newName = document.getElementById('newName');
 const newMRN = document.getElementById('newMRN');
+const newLabel = document.getElementById('newLabel');
+const newTherapist = document.getElementById('newTherapist');
 
 toggleFormBtn.addEventListener('click', () => {
   addForm.classList.toggle('open');
@@ -645,6 +750,8 @@ cancelAddBtn.addEventListener('click', () => {
   addForm.classList.remove('open');
   newName.value = '';
   newMRN.value = '';
+  newLabel.value = '';
+  newTherapist.value = '';
 });
 saveAddBtn.addEventListener('click', () => {
   const name = newName.value.trim();
@@ -657,6 +764,8 @@ saveAddBtn.addEventListener('click', () => {
     id: uid(),
     name: name,
     mrn: mrn,
+    label: newLabel.value,
+    primaryTherapist: newTherapist.value.trim(),
     equipment: blankEquipmentState(),
     comment: "",
     createdAt: new Date().toISOString()
@@ -666,6 +775,8 @@ saveAddBtn.addEventListener('click', () => {
   saveData();
   newName.value = '';
   newMRN.value = '';
+  newLabel.value = '';
+  newTherapist.value = '';
   addForm.classList.remove('open');
   render();
 });
@@ -686,8 +797,15 @@ document.getElementById('exportBtn').addEventListener('click', () => {
     return;
   }
 
+  const headers = ["Patient Name", "MRN", "Label", "Primary Therapist", ...EQUIPMENT, "Comments"];
+
   const rows = patients.map(p => {
-    const row = { "Patient Name": p.name, "MRN": p.mrn };
+    const row = {
+      "Patient Name": p.name,
+      "MRN": p.mrn,
+      "Label": p.label || "",
+      "Primary Therapist": p.primaryTherapist || ""
+    };
     EQUIPMENT.forEach(eq => {
       row[eq] = STATUS_LABELS[p.equipment[eq] || 'none'];
     });
@@ -695,13 +813,17 @@ document.getElementById('exportBtn').addEventListener('click', () => {
     return row;
   });
 
-  const worksheet = XLSX.utils.json_to_sheet(rows);
-  worksheet['!cols'] = [
-    { wch: 24 }, // Patient Name
-    { wch: 12 }, // MRN
-    ...EQUIPMENT.map(() => ({ wch: 12 })),
-    { wch: 36 } // Comments
-  ];
+  const worksheet = XLSX.utils.json_to_sheet(rows, { header: headers });
+
+  // Auto-fit each column's width based on the longest value it actually contains,
+  // so nothing gets visually cut off when opened in Excel.
+  worksheet['!cols'] = headers.map(h => {
+    const longest = rows.reduce((max, row) => {
+      const val = row[h] == null ? "" : String(row[h]);
+      return Math.max(max, val.length);
+    }, h.length);
+    return { wch: Math.min(Math.max(longest + 2, 10), 45) };
+  });
 
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, "Equipment Tracker");
@@ -792,6 +914,8 @@ saveBulkBtn.addEventListener('click', () => {
       id: uid(),
       name: p.name,
       mrn: p.mrn,
+      label: "",
+      primaryTherapist: "",
       equipment: blankEquipmentState(),
       comment: "",
       createdAt: new Date().toISOString()
