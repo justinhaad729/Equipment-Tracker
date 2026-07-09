@@ -357,6 +357,7 @@
     .patient-head{flex-wrap:wrap;}
   }
 </style>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -379,6 +380,7 @@
   <div class="toolbar">
     <input type="text" id="searchInput" placeholder="Search by name or MRN…">
     <button class="btn btn-ghost" id="toggleBulkBtn">Paste List</button>
+    <button class="btn btn-ghost" id="exportBtn">Export to Excel</button>
     <button class="btn btn-primary" id="toggleFormBtn">+ Add Patient</button>
   </div>
 
@@ -669,6 +671,43 @@ saveAddBtn.addEventListener('click', () => {
 });
 newMRN.addEventListener('keydown', (e) => {
   if(e.key === 'Enter') saveAddBtn.click();
+});
+
+// Export to Excel
+const STATUS_LABELS = { none: "—", own: "Own", ordered: "Ordered", arrived: "Arrived" };
+
+document.getElementById('exportBtn').addEventListener('click', () => {
+  if(patients.length === 0){
+    alert("There are no patients to export yet.");
+    return;
+  }
+  if(typeof XLSX === 'undefined'){
+    alert("Export needs an internet connection the first time it's used (it loads a small library). Please connect and try again.");
+    return;
+  }
+
+  const rows = patients.map(p => {
+    const row = { "Patient Name": p.name, "MRN": p.mrn };
+    EQUIPMENT.forEach(eq => {
+      row[eq] = STATUS_LABELS[p.equipment[eq] || 'none'];
+    });
+    row["Comments"] = p.comment || "";
+    return row;
+  });
+
+  const worksheet = XLSX.utils.json_to_sheet(rows);
+  worksheet['!cols'] = [
+    { wch: 24 }, // Patient Name
+    { wch: 12 }, // MRN
+    ...EQUIPMENT.map(() => ({ wch: 12 })),
+    { wch: 36 } // Comments
+  ];
+
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Equipment Tracker");
+
+  const today = new Date().toISOString().slice(0, 10);
+  XLSX.writeFile(workbook, `equipment-tracker-${today}.xlsx`);
 });
 
 // Bulk add logic
