@@ -383,6 +383,7 @@
   .label-badge.ssr{ background:#e6f0fb; color:#1c5fa8; }
   .label-badge.ltc{ background:#f2e9fb; color:#7a37b0; }
   .label-badge.abm{ background:#fdece0; color:#c1591a; }
+  .label-badge.low-cost{ background:#e6f7ec; color:#1f8a5c; }
   .therapist-tag{
     font-size:0.78rem;
     color:#7d8a88;
@@ -462,6 +463,7 @@
           <option value="SSR">SSR</option>
           <option value="LTC">LTC</option>
           <option value="ABM">ABM</option>
+          <option value="Low Cost">Low Cost</option>
         </select>
       </label>
       <label>Primary Therapist
@@ -605,7 +607,7 @@ function render(){
 
     const head = document.createElement('div');
     head.className = 'patient-head';
-    const labelKey = (p.label || '').toLowerCase();
+    const labelKey = (p.label || '').toLowerCase().replace(/\s+/g, '-');
     const badgeHtml = p.label ? `<span class="label-badge ${labelKey}">${escapeHtml(p.label)}</span>` : '';
     head.innerHTML = `
       <div class="patient-id">
@@ -654,6 +656,7 @@ function render(){
           <option value="SSR" ${p.label === 'SSR' ? 'selected' : ''}>SSR</option>
           <option value="LTC" ${p.label === 'LTC' ? 'selected' : ''}>LTC</option>
           <option value="ABM" ${p.label === 'ABM' ? 'selected' : ''}>ABM</option>
+          <option value="Low Cost" ${p.label === 'Low Cost' ? 'selected' : ''}>Low Cost</option>
         </select>
       </div>
       <div>
@@ -667,7 +670,7 @@ function render(){
       p.label = labelSelect.value;
       saveData();
       const h3 = head.querySelector('h3');
-      const badgeKey = (p.label || '').toLowerCase();
+      const badgeKey = (p.label || '').toLowerCase().replace(/\s+/g, '-');
       h3.innerHTML = `${escapeHtml(p.name)} ${p.label ? `<span class="label-badge ${badgeKey}">${escapeHtml(p.label)}</span>` : ''}`;
     });
     therapistInput.addEventListener('input', () => {
