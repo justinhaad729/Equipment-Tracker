@@ -166,6 +166,57 @@
     font-size:0.95rem;
   }
 
+  #bulkForm{
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:18px;
+    margin-bottom:22px;
+    display:none;
+  }
+  #bulkForm.open{display:block;}
+  #bulkForm h2{
+    margin:0 0 8px;
+    font-size:1rem;
+    color:var(--navy);
+  }
+  .bulk-hint{
+    font-size:0.82rem;
+    color:#5a6b6e;
+    margin:0 0 8px;
+    line-height:1.45;
+  }
+  .bulk-example{
+    background:var(--teal-light);
+    border:1px solid #cfe6e6;
+    border-radius:6px;
+    padding:10px 12px;
+    font-size:0.78rem;
+    color:#26696b;
+    margin:0 0 12px;
+    white-space:pre-wrap;
+    font-family:'SFMono-Regular', Consolas, monospace;
+  }
+  #bulkText{
+    width:100%;
+    min-height:150px;
+    padding:12px;
+    border:1px solid var(--line);
+    border-radius:6px;
+    font-family:'SFMono-Regular', Consolas, monospace;
+    font-size:0.88rem;
+    resize:vertical;
+  }
+  #bulkPreview{
+    font-size:0.8rem;
+    color:#5a6b6e;
+    margin-top:8px;
+    min-height:18px;
+  }
+  #bulkPreview .warn{
+    color:var(--danger);
+  }
+
   .patient-card{
     background:#fff;
     border:1px solid var(--line);
@@ -327,6 +378,7 @@
 <main>
   <div class="toolbar">
     <input type="text" id="searchInput" placeholder="Search by name or MRN…">
+    <button class="btn btn-ghost" id="toggleBulkBtn">Paste List</button>
     <button class="btn btn-primary" id="toggleFormBtn">+ Add Patient</button>
   </div>
 
@@ -343,6 +395,20 @@
     <div class="form-actions">
       <button class="btn btn-ghost" id="cancelAddBtn">Cancel</button>
       <button class="btn btn-primary" id="saveAddBtn">Add Patient</button>
+    </div>
+  </div>
+
+  <div id="bulkForm">
+    <h2>Paste Patient List</h2>
+    <p class="bulk-hint">One patient per line. Put the name and MRN on each line separated by a comma, tab, or dash — works great pasted straight from Excel. Example:</p>
+    <pre class="bulk-example">Ahmed Al Mansoori, 100234
+Sara Khalid, 100567
+Fatima Noor - 100812</pre>
+    <textarea id="bulkText" placeholder="Paste your list here…"></textarea>
+    <div id="bulkPreview"></div>
+    <div class="form-actions">
+      <button class="btn btn-ghost" id="cancelBulkBtn">Cancel</button>
+      <button class="btn btn-primary" id="saveBulkBtn">Add All Patients</button>
     </div>
   </div>
 
@@ -547,6 +613,7 @@ const newMRN = document.getElementById('newMRN');
 
 toggleFormBtn.addEventListener('click', () => {
   addForm.classList.toggle('open');
+  bulkForm.classList.remove('open');
   if(addForm.classList.contains('open')) newName.focus();
 });
 cancelAddBtn.addEventListener('click', () => {
@@ -579,6 +646,104 @@ saveAddBtn.addEventListener('click', () => {
 });
 newMRN.addEventListener('keydown', (e) => {
   if(e.key === 'Enter') saveAddBtn.click();
+});
+
+// Bulk add logic
+const bulkForm = document.getElementById('bulkForm');
+const toggleBulkBtn = document.getElementById('toggleBulkBtn');
+const cancelBulkBtn = document.getElementById('cancelBulkBtn');
+const saveBulkBtn = document.getElementById('saveBulkBtn');
+const bulkText = document.getElementById('bulkText');
+const bulkPreview = document.getElementById('bulkPreview');
+
+function parseBulkLine(line){
+  const trimmed = line.trim();
+  if(!trimmed) return null;
+  // Try tab, comma, or dash as separators, in that priority order.
+  let parts;
+  if(trimmed.includes('\t')){
+    parts = trimmed.split('\t');
+  } else if(trimmed.includes(',')){
+    parts = trimmed.split(',');
+  } else if(trimmed.includes(' - ')){
+    parts = trimmed.split(' - ');
+  } else {
+    // Fallback: split on the last run of digits (treat as MRN) vs rest (name)
+    const match = trimmed.match(/^(.*?)[\s\-,]+(\d[\d\-\/]*)$/);
+    if(match){
+      parts = [match[1], match[2]];
+    } else {
+      return { name: trimmed, mrn: '', invalid: true };
+    }
+  }
+  const name = (parts[0] || '').trim();
+  const mrn = (parts.slice(1).join(' ') || '').trim();
+  if(!name || !mrn) return { name: name || trimmed, mrn: mrn, invalid: true };
+  return { name, mrn, invalid: false };
+}
+
+function updateBulkPreview(){
+  const lines = bulkText.value.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  if(lines.length === 0){
+    bulkPreview.textContent = '';
+    return;
+  }
+  const parsed = lines.map(parseBulkLine).filter(Boolean);
+  const valid = parsed.filter(p => !p.invalid).length;
+  const invalid = parsed.length - valid;
+  let msg = `${valid} patient${valid === 1 ? '' : 's'} ready to add`;
+  if(invalid > 0){
+    msg += ` — <span class="warn">${invalid} line${invalid === 1 ? '' : 's'} couldn't be read (need both a name and MRN)</span>`;
+  }
+  bulkPreview.innerHTML = msg;
+}
+
+toggleBulkBtn.addEventListener('click', () => {
+  bulkForm.classList.toggle('open');
+  addForm.classList.remove('open');
+  if(bulkForm.classList.contains('open')) bulkText.focus();
+});
+cancelBulkBtn.addEventListener('click', () => {
+  bulkForm.classList.remove('open');
+  bulkText.value = '';
+  bulkPreview.textContent = '';
+});
+bulkText.addEventListener('input', updateBulkPreview);
+
+saveBulkBtn.addEventListener('click', () => {
+  const lines = bulkText.value.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  if(lines.length === 0){
+    alert("Paste at least one line with a patient name and MRN.");
+    return;
+  }
+  const parsed = lines.map(parseBulkLine).filter(Boolean);
+  const valid = parsed.filter(p => !p.invalid);
+  const invalidCount = parsed.length - valid.length;
+
+  if(valid.length === 0){
+    alert("None of the lines could be read. Make sure each line has a name and MRN separated by a comma, tab, or dash.");
+    return;
+  }
+
+  valid.forEach(p => {
+    patients.unshift({
+      id: uid(),
+      name: p.name,
+      mrn: p.mrn,
+      equipment: blankEquipmentState(),
+      comment: "",
+      createdAt: new Date().toISOString()
+    });
+  });
+  saveData();
+  bulkText.value = '';
+  bulkPreview.textContent = '';
+  bulkForm.classList.remove('open');
+  render();
+
+  if(invalidCount > 0){
+    alert(`Added ${valid.length} patient${valid.length === 1 ? '' : 's'}. ${invalidCount} line${invalidCount === 1 ? '' : 's'} were skipped because they didn't have both a name and MRN.`);
+  }
 });
 
 document.getElementById('searchInput').addEventListener('input', render);
