@@ -515,8 +515,23 @@ function render(){
       </div>
     `;
     head.addEventListener('click', () => {
-      expandedId = (expandedId === p.id) ? null : p.id;
-      render();
+      const wasExpanded = expandedId === p.id;
+      const prevExpandedId = expandedId;
+      expandedId = wasExpanded ? null : p.id;
+
+      // Collapse the previously expanded card, if any and different.
+      if(prevExpandedId && prevExpandedId !== p.id){
+        const prevCard = list.querySelector(`.patient-card[data-id="${prevExpandedId}"]`);
+        if(prevCard){
+          prevCard.classList.remove('expanded');
+          const prevBody = prevCard.querySelector('.patient-body');
+          if(prevBody) prevBody.style.maxHeight = null;
+        }
+      }
+
+      // Toggle this card.
+      card.classList.toggle('expanded', !wasExpanded);
+      body.style.maxHeight = !wasExpanded ? body.scrollHeight + 'px' : null;
     });
 
     const body = document.createElement('div');
@@ -549,9 +564,17 @@ function render(){
       const status = btn.dataset.status;
       p.equipment[eq] = status;
       saveData();
-      render();
-      // keep this card expanded and scroll position stable
-      expandedId = p.id;
+
+      // Update only this button group's active state — no full re-render,
+      // so other patient cards are never touched or repositioned.
+      const group = btn.closest('.status-group');
+      group.querySelectorAll('.status-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.status === status);
+      });
+
+      // Update this card's progress chip in place.
+      const chip = card.querySelector('.progress-chip');
+      if(chip) chip.textContent = progressSummary(p);
     });
 
     const commentBlock = document.createElement('div');
