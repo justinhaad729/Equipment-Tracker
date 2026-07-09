@@ -95,6 +95,16 @@
     font-size:0.92rem;
     background:#fff;
   }
+  .sort-select{
+    padding:10px 12px;
+    border:1px solid var(--line);
+    border-radius:6px;
+    font-size:0.85rem;
+    background:#fff;
+    color:var(--navy);
+    font-weight:600;
+    max-width:190px;
+  }
   .btn{
     border:none;
     cursor:pointer;
@@ -423,6 +433,13 @@
 <main>
   <div class="toolbar">
     <input type="text" id="searchInput" placeholder="Search by name or MRN…">
+    <select id="sortSelect" class="sort-select">
+      <option value="recent">Sort: Recently Added</option>
+      <option value="name-asc">Sort: Name (A–Z)</option>
+      <option value="name-desc">Sort: Name (Z–A)</option>
+      <option value="mrn-asc">Sort: MRN (Low–High)</option>
+      <option value="mrn-desc">Sort: MRN (High–Low)</option>
+    </select>
     <button class="btn btn-ghost" id="toggleBulkBtn">Paste List</button>
     <button class="btn btn-ghost" id="exportBtn">Export to Excel</button>
     <button class="btn btn-primary" id="toggleFormBtn">+ Add Patient</button>
@@ -535,14 +552,39 @@ function progressSummary(p){
   return `${arrived}/${total} arrived`;
 }
 
+function sortPatients(list, sortBy){
+  const sorted = [...list];
+  switch(sortBy){
+    case 'name-asc':
+      sorted.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+      break;
+    case 'name-desc':
+      sorted.sort((a, b) => b.name.localeCompare(a.name, undefined, { sensitivity: 'base' }));
+      break;
+    case 'mrn-asc':
+      sorted.sort((a, b) => a.mrn.localeCompare(b.mrn, undefined, { numeric: true }));
+      break;
+    case 'mrn-desc':
+      sorted.sort((a, b) => b.mrn.localeCompare(a.mrn, undefined, { numeric: true }));
+      break;
+    default:
+      // 'recent' — keep the existing order (patients array is already newest-first).
+      break;
+  }
+  return sorted;
+}
+
 function render(){
   const list = document.getElementById('patientList');
   const empty = document.getElementById('emptyState');
   const query = document.getElementById('searchInput').value.trim().toLowerCase();
+  const sortBy = document.getElementById('sortSelect').value;
 
-  const filtered = patients.filter(p =>
+  let filtered = patients.filter(p =>
     p.name.toLowerCase().includes(query) || p.mrn.toLowerCase().includes(query)
   );
+
+  filtered = sortPatients(filtered, sortBy);
 
   list.innerHTML = "";
 
@@ -933,6 +975,7 @@ saveBulkBtn.addEventListener('click', () => {
 });
 
 document.getElementById('searchInput').addEventListener('input', render);
+document.getElementById('sortSelect').addEventListener('change', render);
 
 dateStamp();
 render();
