@@ -983,6 +983,7 @@ document.getElementById('exportBtn').addEventListener('click', async () => {
   });
 
   worksheet.getRow(1).font = { bold: true };
+  worksheet.views = [{ state: 'frozen', ySplit: 1 }];
 
   rows.forEach(r => {
     const row = worksheet.addRow(r.data);
