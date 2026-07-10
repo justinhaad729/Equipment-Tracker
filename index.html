@@ -640,10 +640,17 @@ function dateStamp(){
 
 function progressSummary(p){
   const vals = Object.values(p.equipment);
-  const total = vals.filter(v => v !== "none").length;
+  const owned = vals.filter(v => v === "own").length;
+  const ordered = vals.filter(v => v === "ordered").length;
   const arrived = vals.filter(v => v === "arrived").length;
+  const total = owned + ordered + arrived;
   if(total === 0) return "No equipment set";
-  return `${arrived}/${total} arrived`;
+
+  const parts = [];
+  if(owned > 0) parts.push(`${owned} Owned`);
+  if(ordered > 0) parts.push(`${ordered} Ordered`);
+  if(arrived > 0) parts.push(`${arrived} Arrived`);
+  return parts.join(" • ");
 }
 
 function sortPatients(list, sortBy){
