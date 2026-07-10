@@ -23,8 +23,8 @@
     --paper:#f6f7f5;
     --ink:#1c2b2f;
     --line:#dbe2e0;
-    --own:#6b7280;
-    --ordered:#c98a2e;
+    --own:#7c4dbd;
+    --ordered:#2e9fd8;
     --arrived:#1f8a5c;
     --none:#e8b930;
     --danger:#b3432c;
@@ -412,7 +412,7 @@
     .patient-head{flex-wrap:wrap;}
   }
 </style>
-<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
@@ -935,12 +935,12 @@ newMRN.addEventListener('keydown', (e) => {
 // Export to Excel
 const STATUS_LABELS = { none: "—", own: "Own", ordered: "Ordered", arrived: "Arrived" };
 
-document.getElementById('exportBtn').addEventListener('click', () => {
+document.getElementById('exportBtn').addEventListener('click', async () => {
   if(patients.length === 0){
     alert("There are no patients to export yet.");
     return;
   }
-  if(typeof XLSX === 'undefined'){
+  if(typeof ExcelJS === 'undefined'){
     alert("Export needs an internet connection the first time it's used (it loads a small library). Please connect and try again.");
     return;
   }
@@ -958,27 +958,45 @@ document.getElementById('exportBtn').addEventListener('click', () => {
       row[eq] = STATUS_LABELS[p.equipment[eq] || 'none'];
     });
     row["Comments"] = p.comment || "";
-    return row;
+    return { data: row, isSSR: (p.label || '').trim().toUpperCase() === 'SSR' };
   });
 
-  const worksheet = XLSX.utils.json_to_sheet(rows, { header: headers });
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet("Equipment Tracker");
 
   // Auto-fit each column's width based on the longest value it actually contains,
   // so nothing gets visually cut off when opened in Excel.
-  worksheet['!cols'] = headers.map(h => {
-    const longest = rows.reduce((max, row) => {
-      const val = row[h] == null ? "" : String(row[h]);
+  worksheet.columns = headers.map(h => {
+    const longest = rows.reduce((max, r) => {
+      const val = r.data[h] == null ? "" : String(r.data[h]);
       return Math.max(max, val.length);
     }, h.length);
     const minWidth = (h === "Patient Name") ? 20 : 10;
-    return { wch: Math.min(Math.max(longest + 4, minWidth), 50) };
+    return { header: h, key: h, width: Math.min(Math.max(longest + 4, minWidth), 50) };
   });
 
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, "Equipment Tracker");
+  worksheet.getRow(1).font = { bold: true };
+
+  rows.forEach(r => {
+    const row = worksheet.addRow(r.data);
+    if(r.isSSR){
+      row.eachCell({ includeEmpty: true }, (cell) => {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF3B0' } };
+      });
+    }
+  });
 
   const today = new Date().toISOString().slice(0, 10);
-  XLSX.writeFile(workbook, `equipment-tracker-${today}.xlsx`);
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `equipment-tracker-${today}.xlsx`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 });
 
 // Bulk add logic
