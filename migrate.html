@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Migrate Old Data</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  body{
+    font-family:'Segoe UI', Roboto, -apple-system, sans-serif;
+    background:#f6f7f5;
+    color:#1c2b2f;
+    max-width:600px;
+    margin:0 auto;
+    padding:24px 18px 60px;
+  }
+  h1{ font-size:1.3rem; color:#0f2a3f; }
+  p{ line-height:1.5; color:#3a4a4c; }
+  .box{
+    background:#fff;
+    border:1px solid #dbe2e0;
+    border-radius:10px;
+    padding:18px;
+    margin:18px 0;
+  }
+  button{
+    background:#1f8a8c;
+    color:#fff;
+    border:none;
+    padding:12px 18px;
+    border-radius:6px;
+    font-size:0.95rem;
+    font-weight:600;
+    cursor:pointer;
+    width:100%;
+  }
+  button:disabled{ opacity:0.6; cursor:default; }
+  .log{
+    font-family:monospace;
+    font-size:0.82rem;
+    background:#0f2a3f;
+    color:#d7f0ee;
+    padding:12px;
+    border-radius:8px;
+    white-space:pre-wrap;
+    max-height:300px;
+    overflow-y:auto;
+    margin-top:14px;
+  }
+  .warn{ color:#b3432c; font-weight:600; }
+</style>
+</head>
+<body>
+  <h1>Migrate Old Local Data → Supabase</h1>
+  <p>This page checks this browser for equipment tracker data saved the old way (before the database was added) and uploads it to Supabase. Run this once, on the same device/browser where you originally entered your patients.</p>
+
+  <div class="box" id="statusBox">Checking this browser for old data…</div>
+
+  <button id="migrateBtn" style="display:none;">Migrate to Supabase</button>
+  <div class="log" id="log" style="display:none;"></div>
+
+<script>
+const SUPABASE_URL = "https://igiegpficzbuwzjxkkka.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlnaWVncGZpY3pidXd6anhra2thIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM2MzA1NjEsImV4cCI6MjA5OTIwNjU2MX0.akCwuzSh2mmEQYOTvdRLthfpDGsPpGF71LEyuyNeqk0";
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const STORE_KEY = "equipmentTrackerData_v1";
+
+const statusBox = document.getElementById('statusBox');
+const migrateBtn = document.getElementById('migrateBtn');
+const logEl = document.getElementById('log');
+
+function log(msg){
+  logEl.style.display = 'block';
+  logEl.textContent += msg + "\n";
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+let oldPatients = [];
+try{
+  const raw = localStorage.getItem(STORE_KEY);
+  oldPatients = raw ? JSON.parse(raw) : [];
+}catch(e){
+  oldPatients = [];
+}
+
+if(oldPatients.length === 0){
+  statusBox.innerHTML = `No old local data found in <strong>this browser</strong>. If you expected data here, make sure you're opening this page on the same device and browser you used before (e.g. the same phone's Chrome app).`;
+} else {
+  statusBox.innerHTML = `Found <strong>${oldPatients.length}</strong> patient(s) saved locally in this browser. Click below to upload them to your shared Supabase database.`;
+  migrateBtn.style.display = 'block';
+}
+
+migrateBtn.addEventListener('click', async () => {
+  migrateBtn.disabled = true;
+  migrateBtn.textContent = 'Migrating…';
+  log(`Starting migration of ${oldPatients.length} patient(s)...`);
+
+  const rowsToInsert = oldPatients.map(p => ({
+    name: p.name || '',
+    mrn: p.mrn || '',
+    label: p.label || '',
+    primary_therapist: p.primaryTherapist || '',
+    equipment: p.equipment || {},
+    comment: p.comment || ''
+  }));
+
+  const { data, error } = await sb.from('patients').insert(rowsToInsert).select();
+
+  if(error){
+    log(`✗ Migration failed: ${error.message}`);
+    statusBox.innerHTML = `<span class="warn">Something went wrong uploading to Supabase.</span> Your local data is untouched — nothing was lost. Check your internet connection and try again.`;
+    migrateBtn.disabled = false;
+    migrateBtn.textContent = 'Try Again';
+    return;
+  }
+
+  log(`✓ Successfully uploaded ${data.length} patient(s) to Supabase.`);
+  data.forEach(row => log(`  • ${row.name} (MRN ${row.mrn})`));
+
+  statusBox.innerHTML = `<strong>Done!</strong> ${data.length} patient(s) uploaded to Supabase. Open the main app — they should now appear there for everyone on the team. This local copy in this browser is left as-is; you can safely ignore or clear it later.`;
+  migrateBtn.style.display = 'none';
+});
+</script>
+</body>
+</html>
