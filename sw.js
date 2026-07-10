@@ -1,4 +1,4 @@
-const CACHE_NAME = "equipment-tracker-v9";
+const CACHE_NAME = "equipment-tracker-v10";
 const ASSETS = [
   "./",
   "./index.html",
@@ -26,8 +26,11 @@ self.addEventListener("activate", (event) => {
 });
 
 // Cache-first for app shell, falling back to network, so it works offline.
+// Supabase requests are always network-only — never cached — since patient
+// data must stay live and accurate across devices.
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+  if (event.request.url.includes("supabase.co")) return; // let it hit the network directly
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;
