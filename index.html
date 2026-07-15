@@ -752,6 +752,14 @@ function render(){
     infoGrid.className = 'patient-info-grid';
     infoGrid.innerHTML = `
       <div>
+        <label>Patient Name</label>
+        <input type="text" class="nameInput" placeholder="Patient name" value="${escapeHtml(p.name || '')}">
+      </div>
+      <div>
+        <label>MRN</label>
+        <input type="text" class="mrnInput" placeholder="MRN" value="${escapeHtml(p.mrn || '')}">
+      </div>
+      <div>
         <label>Label</label>
         <select class="labelSelect">
           <option value="" ${!p.label ? 'selected' : ''}>None</option>
@@ -766,14 +774,37 @@ function render(){
         <input type="text" class="therapistInput" placeholder="e.g. Justin" value="${escapeHtml(p.primaryTherapist || '')}">
       </div>
     `;
+    const nameInput = infoGrid.querySelector('.nameInput');
+    const mrnInput = infoGrid.querySelector('.mrnInput');
     const labelSelect = infoGrid.querySelector('.labelSelect');
     const therapistInput = infoGrid.querySelector('.therapistInput');
-    labelSelect.addEventListener('change', () => {
-      p.label = labelSelect.value;
-      persistPatientUpdate(p.id, { label: p.label });
+
+    function refreshHeader(){
       const h3 = head.querySelector('h3');
       const badgeKey = (p.label || '').toLowerCase().replace(/\s+/g, '-');
       h3.innerHTML = `${escapeHtml(p.name)} ${p.label ? `<span class="label-badge ${badgeKey}">${escapeHtml(p.label)}</span>` : ''}`;
+      const mrnDiv = head.querySelector('.mrn');
+      if(mrnDiv) mrnDiv.textContent = `MRN: ${p.mrn}`;
+    }
+
+    nameInput.addEventListener('input', () => {
+      const val = nameInput.value.trim();
+      if(!val) return; // don't allow saving a blank name
+      p.name = val;
+      debounce(`name-${p.id}`, () => persistPatientUpdate(p.id, { name: p.name }));
+      refreshHeader();
+    });
+    mrnInput.addEventListener('input', () => {
+      const val = mrnInput.value.trim();
+      if(!val) return; // don't allow saving a blank MRN
+      p.mrn = val;
+      debounce(`mrn-${p.id}`, () => persistPatientUpdate(p.id, { mrn: p.mrn }));
+      refreshHeader();
+    });
+    labelSelect.addEventListener('change', () => {
+      p.label = labelSelect.value;
+      persistPatientUpdate(p.id, { label: p.label });
+      refreshHeader();
     });
     therapistInput.addEventListener('input', () => {
       p.primaryTherapist = therapistInput.value;
